@@ -10,11 +10,11 @@
 
 
 /mnt/eds_projets/inria_hackathon/dev/cdechaux/pt_env/bin/python -u /mnt/eds_projets/inria_hackathon/dev/cdechaux/Hackathon_SeminaireSanteNumerique_2025_2/scripts/run_pipeline.py \
-  --input-csv /mnt/eds_projets/inria_hackathon/data/hackathon_train.csv \
+  --input-csv /mnt/eds_projets/inria_hackathon/data/hackathon_inference.csv \
   --output-csv /mnt/eds_projets/inria_hackathon/eval/safa_test_1.csv \
   --mode predict \
   --backend transformer_safa \
-  --col-text txt_rw \
+  --col-text observationBlob \
   --col-dp code_split \
   --col-sejour index_col \
   --bundle-path /mnt/eds_projets/inria_hackathon/eval/cdechaux/dp_transformer/bundle_safa.joblib
