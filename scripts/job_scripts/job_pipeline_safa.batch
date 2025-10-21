@@ -7,28 +7,12 @@
 #SBATCH -o /mnt/eds_projets/inria_hackathon/dev/cdechaux/logs_louise/out-%j.out
 
 # --- Lancement ---
-#/mnt/eds_projets/inria_hackathon/dev/cdechaux/pt_env/bin/python -u /mnt/eds_projets/inria_hackathon/dev/cdechaux/Hackathon_SeminaireSanteNumerique_2025_2/scripts/run_pipeline.py \
-#  --input-csv /mnt/eds_projets/inria_hackathon/data/hackathon_train.csv \
-#  --output-csv /mnt/eds_projets/inria_hackathon/eval/safa_eval_1.csv \
-#  --mode train \
-#  --backend transformer_safa \
-#  --col-text txt_rw \
-#  --col-dp code_split \
-#  --bundle-path /mnt/eds_projets/inria_hackathon/eval/cdechaux/dp_transformer/bundle_safa.joblib
-
-
 /mnt/eds_projets/inria_hackathon/dev/cdechaux/pt_env/bin/python -u /mnt/eds_projets/inria_hackathon/dev/cdechaux/Hackathon_SeminaireSanteNumerique_2025_2/scripts/run_pipeline.py \
   --input-csv /mnt/eds_projets/inria_hackathon/data/hackathon_train.csv \
-  --output-csv /mnt/eds_projets/inria_hackathon/eval/safa_eval_1.csv \
-  --mode predict \
+  --output-csv /mnt/eds_projets/inria_hackathon/eval/safa_train_txt_rw.csv \
+  --mode train \
   --backend transformer_safa \
   --col-text txt_rw \
   --col-dp code_split \
-  --bundle-path /mnt/eds_projets/inria_hackathon/eval/cdechaux/dp_transformer/bundle_safa.joblib
-
-#python scripts/run_pipeline_simple.py \
-#  --input-csv data/dp_dataset_small.csv \
-#  --output-csv data/pred_simple.csv \
-#  --col-dp code_dp \
-#  --mode train
+  --bundle-path /mnt/eds_projets/inria_hackathon/eval/cdechaux/dp_transformer/bundle_safa_text_rw.joblib
 
