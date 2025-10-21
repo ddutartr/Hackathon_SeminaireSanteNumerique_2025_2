@@ -1,0 +1,34 @@
+#!/bin/bash
+#SBATCH --job-name=pipeline_ssn_safa_1
+#SBATCH --partition=routage
+#SBATCH --gres=gpu:3g.70gb:1 # évite les 1080 Ti ; sinon: --gres=gpu:1 --exclude=gpu004
+#SBATCH -c 8    
+#SBATCH -e /mnt/eds_projets/inria_hackathon/dev/cdechaux/logs_louise/err-%j.err
+#SBATCH -o /mnt/eds_projets/inria_hackathon/dev/cdechaux/logs_louise/out-%j.out
+
+# --- Lancement ---
+#/mnt/eds_projets/inria_hackathon/dev/cdechaux/pt_env/bin/python -u /mnt/eds_projets/inria_hackathon/dev/cdechaux/Hackathon_SeminaireSanteNumerique_2025_2/scripts/run_pipeline.py \
+#  --input-csv /mnt/eds_projets/inria_hackathon/data/hackathon_train.csv \
+#  --output-csv /mnt/eds_projets/inria_hackathon/eval/safa_eval_1.csv \
+#  --mode train \
+#  --backend transformer_safa \
+#  --col-text txt_rw \
+#  --col-dp code_split \
+#  --bundle-path /mnt/eds_projets/inria_hackathon/eval/cdechaux/dp_transformer/bundle_safa.joblib
+
+
+/mnt/eds_projets/inria_hackathon/dev/cdechaux/pt_env/bin/python -u /mnt/eds_projets/inria_hackathon/dev/cdechaux/Hackathon_SeminaireSanteNumerique_2025_2/scripts/run_pipeline.py \
+  --input-csv /mnt/eds_projets/inria_hackathon/data/hackathon_train.csv \
+  --output-csv /mnt/eds_projets/inria_hackathon/eval/safa_eval_1.csv \
+  --mode predict \
+  --backend transformer_safa \
+  --col-text txt_rw \
+  --col-dp code_split \
+  --bundle-path /mnt/eds_projets/inria_hackathon/eval/cdechaux/dp_transformer/bundle_safa.joblib
+
+#python scripts/run_pipeline_simple.py \
+#  --input-csv data/dp_dataset_small.csv \
+#  --output-csv data/pred_simple.csv \
+#  --col-dp code_dp \
+#  --mode train
+

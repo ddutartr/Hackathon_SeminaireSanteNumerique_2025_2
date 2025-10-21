@@ -7,14 +7,15 @@
 #SBATCH -o /mnt/eds_projets/inria_hackathon/dev/cdechaux/logs/out-%j.out
 
 # --- Lancement ---
-#/mnt/eds_projets/inria_hackathon/dev/cdechaux/pt_env/bin/python -u /mnt/eds_projets/inria_hackathon/dev/cdechaux/Hackathon_SeminaireSanteNumerique_2025_2/scripts/run_pipeline.py \
-#  --input-csv /mnt/eds_projets/inria_hackathon/data/hackathon_inference.csv \
-#  --output-csv /mnt/eds_projets/inria_hackathon/eval/cdechaux/cdechaux_test_1.csv \
-#  --mode predict \
-#  --backend hf_finetuned \
-#  --col-dp code_split \
-#  --col-text observationBlob \
-#  --hf-checkpoint /mnt/eds_projets/inria_hackathon/eval/cdechaux/checkpoints/camembert_dp_ft_1_brut/final
+/mnt/eds_projets/inria_hackathon/dev/cdechaux/pt_env/bin/python -u /mnt/eds_projets/inria_hackathon/dev/cdechaux/Hackathon_SeminaireSanteNumerique_2025_2/scripts/run_pipeline.py \
+  --input-csv /mnt/eds_projets/inria_hackathon/data/hackathon_inference.csv \
+  --output-csv /mnt/eds_projets/inria_hackathon/eval/cdechaux/cdechaux_test_2.csv \
+  --mode predict \
+  --backend hf_finetuned \
+  --col-dp code_split \
+  --col-text observationBlob \
+  --col-sejour index_col \
+  --hf-checkpoint /mnt/eds_projets/inria_hackathon/eval/cdechaux/checkpoints/camembert_dp_ft_1_rw/final
 
 #python scripts/run_pipeline_simple.py \
 #  --input-csv data/dp_dataset_small.csv \
@@ -30,10 +31,3 @@
 #  --col-text observationBlob \
 #  --llm-model mistralai/Mistral-Small-24B-Instruct-2501
 
-/mnt/eds_projets/inria_hackathon/dev/env/mlflow/bin/python -u /mnt/eds_projets/inria_hackathon/eval/eval.py \
-  --task top_40 \
-  --csv /mnt/eds_projets/inria_hackathon/eval/test_rw.csv \
-  --sep "," \
-  --pred_colname "dp_predit" \
-  --index_colname "index_col" \
-  --run_name "eval_cdechaux_test_rw"

@@ -1,0 +1,18 @@
+#!/bin/bash
+#SBATCH --job-name=pipeline_ssn_safa_1
+#SBATCH --partition=routage
+#SBATCH --gres=gpu:3g.70gb:1 # évite les 1080 Ti ; sinon: --gres=gpu:1 --exclude=gpu004
+#SBATCH -c 8    
+#SBATCH -e /mnt/eds_projets/inria_hackathon/dev/cdechaux/logs_louise/err-%j.err
+#SBATCH -o /mnt/eds_projets/inria_hackathon/dev/cdechaux/logs_louise/out-%j.out
+
+# --- Lancement ---
+/mnt/eds_projets/inria_hackathon/dev/cdechaux/pt_env/bin/python /mnt/eds_projets/inria_hackathon/dev/cdechaux/Hackathon_SeminaireSanteNumerique_2025_2/scripts/metrics_rewriting.py   --input /mnt/eds_projets/inria_hackathon/data/hackathon_train.csv   --column txt_rw   --output /mnt/eds_projets/inria_hackathon/eval/metrics_observationBlob.csv
+
+
+#python scripts/run_pipeline_simple.py \
+#  --input-csv data/dp_dataset_small.csv \
+#  --output-csv data/pred_simple.csv \
+#  --col-dp code_dp \
+#  --mode train
+

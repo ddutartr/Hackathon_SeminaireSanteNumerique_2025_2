@@ -186,7 +186,8 @@ def main():
     out = Path(args.output_dir); out.mkdir(parents=True, exist_ok=True)
 
     # 1) Data
-    df = pd.read_csv(args.input_csv)
+    df = pd.read_csv(args.input_csv, sep=";")
+    df = df[df["is_top_40"] == 1]
     assert args.text_col in df.columns and args.label_col in df.columns, "Cols manquantes dans le CSV"
     df = df[[args.text_col, args.label_col]].dropna().reset_index(drop=True)
 

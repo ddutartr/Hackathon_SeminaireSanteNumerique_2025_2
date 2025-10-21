@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=pipeline_ssn_cdechaux_1
+#SBATCH --job-name=pipeline_llm_cdechaux_1
 #SBATCH --partition=routage
 #SBATCH --gres=gpu:3g.70gb:1
 #SBATCH -c 8    
@@ -22,18 +22,11 @@
 #  --col-dp code_dp \
 #  --mode train
 
-#/mnt/eds_projets/inria_hackathon/dev/cdechaux/pt_env/bin/python -u /mnt/eds_projets/inria_hackathon/dev/cdechaux/Hackathon_SeminaireSanteNumerique_2025_2/scripts/run_pipeline_2.py \
-#  --input-csv /mnt/eds_projets/inria_hackathon/data/hackathon_train.csv \
-#  --output-csv /mnt/eds_projets/inria_hackathon/eval/cdechaux/cdechaux_eval_20000_llm.csv \
-#  --mode predict \
-#  --backend llm \
-#  --col-text observationBlob \
+/mnt/eds_projets/inria_hackathon/dev/cdechaux/pt_env/bin/python -u /mnt/eds_projets/inria_hackathon/dev/cdechaux/Hackathon_SeminaireSanteNumerique_2025_2/scripts/run_pipeline.py \
+  --input-csv /mnt/eds_projets/inria_hackathon/data/hackathon_inference.csv \
+  --output-csv /mnt/eds_projets/inria_hackathon/eval/cdechaux/cdechaux_eval_llm.csv \
+  --mode predict \
+  --backend llm \
+  --col-text observationBlob \
+  --col-sejour index_col
 #  --llm-model mistralai/Mistral-Small-24B-Instruct-2501
-
-/mnt/eds_projets/inria_hackathon/dev/env/mlflow/bin/python -u /mnt/eds_projets/inria_hackathon/eval/eval.py \
-  --task top_40 \
-  --csv /mnt/eds_projets/inria_hackathon/eval/test_rw.csv \
-  --sep "," \
-  --pred_colname "dp_predit" \
-  --index_colname "index_col" \
-  --run_name "eval_cdechaux_test_rw"

@@ -74,7 +74,41 @@ def _count_sections_by_blanklines(text: str) -> int:
 def _count_abbr(text: str) -> int:
     return len(_RE_UPPER_ABBR.findall(text)) + len(_RE_ABBR_DOTTED.findall(text))
 
+# ---------------------------  Text-level linguistic metrics ---------------------------
 
+def _ttr(words: list[str]) -> float:
+    """Type-Token Ratio -> #unique words / #total words → lexical diversity."""
+    return round(len(set(words)) / len(words), 4) if words else 0.0
+
+def _detect_negations(text: str) -> int:
+    """Count simple French negation terms."""
+    neg_words = ["pas", "aucun", "sans", "ni", "jamais"]
+    return sum(len(re.findall(rf"\b{w}\b", text, re.IGNORECASE)) for w in neg_words)
+
+def _count_numbers(text: str) -> int:
+    """Count all numerical values."""
+    return len(re.findall(r"\d+", text))
+
+def _count_temporal_refs(text: str) -> int:
+    """Count explicit temporal expressions (dates, months, years)."""
+    months = [
+        "janvier", "février", "mars", "avril", "mai", "juin",
+        "juillet", "août", "septembre", "octobre", "novembre", "décembre"
+    ]
+    patterns = [r"\b\d{1,2}/\d{1,2}/\d{2,4}\b", r"\b\d{4}\b"] + months
+    return sum(len(re.findall(p, text, re.IGNORECASE)) for p in patterns)
+
+def _flesch_kincaid_fr(text: str, words: list[str], sentences: list[str]) -> float:
+    """Flesch–Kincaid readability score adapted for French (Kandel, 1987)."""
+    from pyphen import Pyphen
+    dic = Pyphen(lang="fr")
+    if not words or not sentences:
+        return 0.0
+    syllables = sum(len(dic.inserted(w).split("-")) for w in words)
+    ASL = len(words) / len(sentences)      # average sentence length
+    ASW = syllables / len(words)           # average syllables per word
+    score = 206.835 - 1.015 * ASL - 84.6 * ASW
+    return round(score, 2)
 
 # --------------------------- 1) Normalisation -------------------------------
 
@@ -106,6 +140,12 @@ class NormalizeOp(Operation):
             t = re.sub(r"[ \t]{2,}", " ", t)
         if self.cfg.lower:
             t = t.lower()
+        t = re.sub(
+            r"(?:(?<=^)|(?<=[ \t\r\n]))(?:Dr|dr)(?=(?:[ \t\r\n.]|$))",
+            "",
+            t,
+        )
+        t = re.sub(r'X{2,}', '', t)
         return t
 
     def run(self, docs: Sequence[TextDocument]):
@@ -138,7 +178,7 @@ class MetricsTextOp(Operation):
         if self.cfg.remove_accents:
             out = [_strip_accents(t) for t in out]
         return out
-
+"""
     def _compute(self, text: str) -> Dict[str, float]:
         if not text:
             return {
@@ -168,14 +208,60 @@ class MetricsTextOp(Operation):
             "n_sections": int(n_sections),
             "n_abbr": int(n_abbr),
         }
+"""
 
-    def run(self, docs: Sequence[TextDocument]):
-        for d in docs:
-            text = d.metadata.get(self.cfg.text_field, d.text or "")
-            stats = self._compute(text)
-            d.metadata.setdefault(self.cfg.metrics_root, {})
-            d.metadata[self.cfg.metrics_root][self.cfg.phase] = stats
-        return list(docs)
+def _compute(self, text: str) -> Dict[str, float]:
+        if not text:
+            return {
+                "len_chars": 0,
+                "len_words": 0,
+                "sent_len_avg": 0.0,
+                "lexicon_size": 0,
+                "n_sections": 0,
+                "n_abbr": 0,
+                "ttr": 0.0,
+                "n_negations": 0,
+                "n_numbers": 0,
+                "n_temporal_refs": 0,
+                "flesch_fr": 0.0,
+            }
+        words = _tokenize_words(text)
+        sents = _split_sentences(text)
+        norm_words = self._normalize_for_vocab(words)
+        len_chars = len(text)
+        len_words = len(words)
+        sent_len_avg = (sum(len(_tokenize_words(s)) for s in sents) / len(sents)) if sents else 0.0
+        lexicon_size = len(set(norm_words))
+        n_sections = _count_sections_by_blanklines(text)
+        n_abbr = _count_abbr(text)
+        # --- New metrics ---
+        ttr = _ttr(norm_words)
+        n_negations = _detect_negations(text)
+        n_numbers = _count_numbers(text)
+        n_temporal_refs = _count_temporal_refs(text)
+        flesch_fr = _flesch_kincaid_fr(text, words, sents)
+        return {
+            "len_chars": int(len_chars),
+            "len_words": int(len_words),
+            "sent_len_avg": float(round(sent_len_avg, 3)),
+            "lexicon_size": int(lexicon_size),
+            "n_sections": int(n_sections),
+            "n_abbr": int(n_abbr),
+            "ttr": float(ttr),
+            "n_negations": int(n_negations),
+            "n_numbers": int(n_numbers),
+            "n_temporal_refs": int(n_temporal_refs),
+            "flesch_fr": float(flesch_fr),
+        }
+
+
+def run(self, docs: Sequence[TextDocument]):
+    for d in docs:
+        text = d.metadata.get(self.cfg.text_field, d.text or "")
+        stats = self._compute(text)
+        d.metadata.setdefault(self.cfg.metrics_root, {})
+        d.metadata[self.cfg.metrics_root][self.cfg.phase] = stats
+    return list(docs)
 
 
 @dataclass
@@ -208,6 +294,22 @@ class RewriteOp(Operation):
 
         # 1) Messages structurés (spécifiques au modèle Instruct)
         target = f" (~{self.cfg.target_words} mots)" if self.cfg.target_words else ""
+        sys_msg2 = "Tu es un assistant clinique spécialisé dans l'analyse de documents médicaux."
+        "Ta mission : Restructurer et condenser un compte rendu hospitalier en français médical clair et précis."
+        "STRUCTURE OBLIGATOIRE :"
+        "1. Diagnostic principal (clairement identifié et mis en évidence)"
+        "2. Diagnostics secondaires "
+        "3. Éléments cliniques pertinents(examens, résultats, observations, symptomes)"
+        "4. Traitements (médicaments, prescriptions, recommandations)"
+        "5. Conclusion"
+
+        "RÈGLES STRICTES :"
+        "- Ne jamais inventer, extrapoler ou ajouter d'informations non présentes dans le document source"
+        "- Préserver tous les termes médicaux techniques et diagnostics exacts"
+        "- Utiliser un français médical standardisé et compréhensible"
+        "- Maintenir la précision clinique tout en améliorant la lisibilité"
+
+        "OBJECTIF FINAL : Faciliter l'identification rapide du diagnostic principal et des informations cliniques essentielles pour la prise en charge du patient."
         sys_msg = (
             "Tu es un assistant clinique. Réécris et condense un compte rendu hospitalier "
             "en français clair, sans inventer d'informations, en préservant les diagnostics, "
@@ -341,6 +443,92 @@ class EmbedConfig:
     chunks_field: str = "chunks"
     emb_field: str = "emb"
     batch_size: int = 16
+
+class TransformerEmbedOp_safa(Operation):
+    def __init__(self, cfg: EmbedConfig):
+        super().__init__()
+        self.cfg = cfg
+        self.max_length = 512 # Max sequence length for CamemBERT
+        self.stride = 256 # Stride for sliding window
+
+        # Directory to save tensors
+        #self.save_dir = 'data/processed/embed_CamemBio_sliding_note/'
+        #os.makedirs(SAVE_DIR, exist_ok=True)
+        """Load CamemBERT-Bio-Base tokenizer and model."""
+        self.tokenizer = AutoTokenizer.from_pretrained(self.cfg.hf_model, use_fast=True)
+        
+        self.model = AutoModel.from_pretrained(self.cfg.hf_model, output_hidden_states=True)
+        if self.cfg.device == "auto":
+            dev = "cuda" if torch.cuda.is_available() else "cpu"
+        else:
+            dev = self.cfg.device
+        self.device = dev
+        self.model.to(self.device).eval()
+
+
+
+    def mean_max_aggregate(self, embeddings: torch.Tensor) -> torch.Tensor:
+        """
+        Perform mean-max pooling on a 2D tensor of shape (num_chunks, hidden_dim).
+        Returns concatenated tensor [mean; max].
+        """
+        mean_emb = embeddings.mean(dim=0)
+        max_emb, _ = embeddings.max(dim=0)
+        return torch.cat((mean_emb, max_emb), dim=0)
+
+
+    def process_sentence(self, sentence):
+        """Encode a sentence (or chunk) and return its embedding."""
+        encoded = self.tokenizer.encode_plus(
+            sentence,
+            add_special_tokens=True,
+            max_length=self.max_length,
+            padding='max_length',
+            truncation=True,
+            return_tensors='pt'
+        )
+
+        input_ids = encoded['input_ids'].to(self.device)
+        attention_mask = encoded['attention_mask'].to(self.device)
+
+        with torch.no_grad():
+            outputs = self.model(input_ids, attention_mask=attention_mask)
+            last_hidden = outputs.last_hidden_state.squeeze(0)  # (seq_len, hidden_dim)
+
+        # Aggregate across tokens → sentence-level embedding
+        sentence_embedding = self.mean_max_aggregate(last_hidden)
+        #sentence_embedding = sentence_embedding.cpu().numpy().astype(np.float32)
+        return sentence_embedding
+
+    def run(self, docs: Sequence[TextDocument]):
+        for d in docs:
+            note_embeddings = []
+            text = d.metadata.get("text_rw") or d.metadata.get("text_norm") or (d.text or "")
+            # Simple sentence splitting
+            sentences = text.split('. ')
+            for sentence in sentences:
+                if len(sentence) > self.max_length:
+                    # Sliding window for long text
+                    start = 0
+                    while start < len(sentence):
+                        end = start + self.max_length
+                        chunk = sentence[start:end]
+                        emb = self.process_sentence(chunk)
+                        note_embeddings.append(emb)
+                        start += self.stride
+                else:
+                    emb = self.process_sentence(sentence)
+                    note_embeddings.append(emb)
+            d.metadata["chunk_embs"] = [e for e in note_embeddings]
+            # Stack and aggregate to get document-level embedding
+            note_tensor = torch.stack(note_embeddings)
+            doc_embedding = self.mean_max_aggregate(note_tensor)
+            doc_embedding = doc_embedding.cpu().numpy().astype(np.float32)
+            d.metadata[self.cfg.emb_field] = doc_embedding
+        return list(docs)
+
+
+
 
 class TransformerEmbedOp(Operation):
     def __init__(self, cfg: EmbedConfig):
@@ -594,9 +782,61 @@ class LLMDPInferenceOp(Operation):
             return None
         prompt = (
             "Tu es un codeur hospitalier expert. Lis le texte clinique et renvoie UNIQUEMENT le code CIM-10 "
-            "du diagnostic principal (DP). Pas d'explication, rien d'autre.\n\n"
-            f"{text.strip()}\n\nDP:"
+            "du diagnostic principal (DP).Pas d'explication, rien d'autre. Il s-agit du chapitre 2 de la CIM-10, sur les tumeurs.\n\n"
+            f"{text.strip()}\n\nDP:" 
         )
+        prompt_2 = (
+            "Tu es un codeur hospitalier expert. Lis le texte clinique et renvoie UNIQUEMENT le code CIM-10 "
+            "du diagnostic principal (DP). Pas d'explication, rien d'autre. Il s'agit du Chapitre II (tumeurs).\n\n"
+            "Contraintes :\n"
+            "1) Le code DOIT être choisi EXCLUSIVEMENT parmi la liste ci-dessous.\n"
+            "2) Forme de sortie : 'DP: <CODE>' (ex. 'DP: C34').\n"
+            "3) Si plusieurs codes semblent possibles, choisis le plus probable au vu du texte.\n\n"
+            "Liste des codes autorisés (rappel des libellés) :\n"
+            "- C34 — Tumeur maligne de la bronche et du poumon\n"
+            "- C44 — Autres tumeurs malignes de la peau (non-mélanome)\n"
+            "- C18 — Tumeur maligne du côlon\n"
+            "- C15 — Tumeur maligne de l'œsophage\n"
+            "- C79 — Tumeur maligne secondaire d'autres localisations précisées (métastases)\n"
+            "- C43 — Mélanome malin de la peau\n"
+            "- C16 — Tumeur maligne de l'estomac\n"
+            "- C20 — Tumeur maligne du rectum\n"
+            "- C71 — Tumeur maligne du cerveau\n"
+            "- C78 — Tumeur maligne secondaire des organes respiratoires et digestifs (métastases)\n"
+            "- C06 — Tumeur maligne d'autres parties et parties non précisées de la bouche\n"
+            "- C92 — Leucémie myéloïde\n"
+            "- C64 — Tumeur maligne du rein, sauf pelvis rénal\n"
+            "- C25 — Tumeur maligne du pancréas\n"
+            "- C22 — Tumeur maligne du foie et des voies biliaires intra-hépatiques\n"
+            "- C91 — Leucémie lymphoïde\n"
+            "- C67 — Tumeur maligne de la vessie\n"
+            "- C83 — Lymphome non hodgkinien diffus (non folliculaire)\n"
+            "- C81 — Maladie de Hodgkin\n"
+            "- C73 — Tumeur maligne de la thyroïde\n"
+            "- C74 — Tumeur maligne de la surrénale\n"
+            "- C02 — Tumeur maligne d'autres parties et parties non précisées de la langue\n"
+            "- C90 — Myélome multiple et tumeurs malignes à plasmocytes\n"
+            "- C61 — Tumeur maligne de la prostate\n"
+            "- C62 — Tumeur maligne du testicule\n"
+            "- C56 — Tumeur maligne de l'ovaire\n"
+            "- C77 — Tumeur maligne secondaire et non précisée des ganglions lymphatiques (métastases)\n"
+            "- C50 — Tumeur maligne du sein\n"
+            "- C82 — Lymphome folliculaire\n"
+            "- C01 — Tumeur maligne de la base de la langue\n"
+            "- C84 — Lymphomes à cellules T/NK matures (ex. mycosis fongoïde)\n"
+            "- C03 — Tumeur maligne de la gencive\n"
+            "- C54 — Tumeur maligne du corps de l’utérus\n"
+            "- C10 — Tumeur maligne de l'oropharynx\n"
+            "- C88 — Maladies immunoprolifératives malignes\n"
+            "- C17 — Tumeur maligne de l'intestin grêle\n"
+            "- C32 — Tumeur maligne du larynx\n"
+            "- C04 — Tumeur maligne du plancher de la bouche\n"
+            "- C13 — Tumeur maligne de l'hypopharynx\n"
+            "- C53 — Tumeur maligne du col de l’utérus\n\n"
+            f"Texte clinique :\n{text.strip()}\n\n"
+            "DP: "
+        )
+
         tok = self._tok(prompt, return_tensors="pt", truncation=True, max_length=4096)
         tok = {k: v.to(self._lm.device) for k, v in tok.items()}
         out = self._lm.generate(

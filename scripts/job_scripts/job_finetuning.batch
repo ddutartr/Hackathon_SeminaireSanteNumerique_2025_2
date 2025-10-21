@@ -1,37 +1,19 @@
 #!/bin/bash
-#SBATCH --job-name=finetuning_ssn
-#SBATCH --partition=gpu
-#SBATCH --gres=gpu:1 # évite les 1080 Ti ; sinon: --gres=gpu:1 --exclude=gpu004
+#SBATCH --job-name=pipeline_finetuning_cdechaux_1
+#SBATCH --partition=routage
+#SBATCH --gres=gpu:3g.70gb:1
+#SBATCH -c 8    
+#SBATCH -e /mnt/eds_projets/inria_hackathon/dev/cdechaux/logs/err-%j.err
+#SBATCH -o /mnt/eds_projets/inria_hackathon/dev/cdechaux/logs/out-%j.out
 
-#SBATCH -c 8
-#SBATCH --mem=40G
-#SBATCH --time=03:00:00           
-#SBATCH --output=logs/%x_%j.out
-
-
-# --- Préparation ---
-mkdir -p logs
-
-
-# Activer environnement
-# --- Option A : conda ---
-source ~/miniconda3/etc/profile.d/conda.sh
-conda activate pt_env
-
-# --- Option B : venv ---
-#python -m venv aoc-env
-#source .venv/bin/activate
-
-
-pip install -r requirements.txt
 
 # --- Lancement ---
 # attention a bien adapter --text-col si on veut finetuner sur les textes reecrits
-python scripts/train_finetune_dp.py \
-  --input-csv data/dp_dataset_rw.csv \
-  --text-col text_rw \
-  --label-col code_dp \
-  --output-dir checkpoints/camembert_dp_ft_2 \
-  --pretrained almanach/camembert-bio-base \
-  --epochs 3 --batch-size 8 --lr 2e-5 --fp16
+/mnt/eds_projets/inria_hackathon/dev/cdechaux/pt_env/bin/python -u /mnt/eds_projets/inria_hackathon/dev/cdechaux/Hackathon_SeminaireSanteNumerique_2025_2/scripts/train_finetune_dp.py \
+  --input-csv /mnt/eds_projets/inria_hackathon/data/hackathon_train.csv \
+  --text-col observationBlob \
+  --label-col code_split \
+  --output-dir /mnt/eds_projets/inria_hackathon/eval/cdechaux/checkpoints/camembert_dp_ft_2_brut \
+  --pretrained /mnt/eds_projets/inria_hackathon/eval/cdechaux/checkpoints/camembert_dp_ft_1_brut/final \
+  --epochs 3 --batch-size 16 --lr 2e-5 --fp16
 

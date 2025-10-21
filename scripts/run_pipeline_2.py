@@ -56,13 +56,15 @@ from operations import (
     HFDocPredictConfig, HFDocClassifierOp,
     LLMDPConfig, LLMDPInferenceOp,
 )
-
-
+import os 
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+os.environ['TORCH_USE_CUDA_DSA'] = "1"
 # ----------------------- I/O helpers -----------------------
 
 def load_docs_from_csv(csv_path: Path, col_text: str, col_dp: str | None, col_patient: str, col_sejour: str):
     df = pd.read_csv(csv_path, sep=";")
     df_filtre = df[df["is_top_40"] == 1]
+    df_filtre=df_filtre[:20000]
     docs: List[TextDocument] = []
     for _, row in df_filtre.iterrows():
         txt = str(row[col_text]) if pd.notna(row[col_text]) else ""
@@ -340,7 +342,7 @@ def parse_args() -> argparse.Namespace:
 
     # Transformer finetune
     p.add_argument("--hf-checkpoint", type=str, help="Dossier checkpoint HF fine-tuné")  #penser a preciser '/final' dans le chemin 
-    p.add_argument("--hf-batch-size", type=int, default=1000)
+    p.add_argument("--hf-batch-size", type=int, default=16)
     p.add_argument("--aggregate_hf", choices=["mean", "max", "median"], default="mean")
 
 
